@@ -67,34 +67,41 @@ def process_transaction(request: dict) -> dict:
             'status': 'error',
             'message': 'Invalid VMID'
         }
-    print(f"VMID {vmid} corresponds to UID {uid}")
 
     # 2. Verify PIN
     pin_hash = sha3_hash(input_pin)
     if stored_users[uid]["hashed_pin"] != pin_hash:
-        print("Invalid PIN")
         return {
             'status': 'error',
             'message': 'Invalid PIN'
         }
-    print("PIN verified successfully")
     
     # 3. Check balance
     if stored_users[uid]["balance"] < amount:
-        print("Insufficient balance")
         return {
             'status': 'error',
             'message': 'Insufficient balance'
         }
 
-    # 4. Deduct money
-    stored_users[uid]["balance"] -= amount
+    # 4. Create and write block to blockchain
+    try:
+        block = add_to_blockchain()
+    except Exception as e:
+        return {
+            'status': 'error',
+            'message': f'Blockchain error: {str(e)}'
+        }
 
-    # 5. Add to franchise
+    # 5. Update balances
+    stored_users[uid]["balance"] -= amount
     stored_franchises[fid]["balance"] += amount
     
-    # 6. Write to blockchain
-    add_to_blockchain()
+    return {
+        'status': 'success',
+        'message': 'Transaction processed successfully',
+        'txn_id': block.txn_id,
+        'block_hash': block.hash
+    }
 
 # TODO: Write to blockchain to store transactions and maintain integrity
 def add_to_blockchain():
