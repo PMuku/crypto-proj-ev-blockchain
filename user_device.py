@@ -5,4 +5,10 @@ def make_transaction():
     3. Send to kiosk
     '''
     
-    pass
+    # decrpyt QR for fid
+    fid = int(input)
+    vmid = int(input())
+    pin = int(input())
+    amount = int(input())
+    
+    return {vmid, pin, amount, fid}
