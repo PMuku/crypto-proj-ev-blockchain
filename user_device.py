@@ -8,4 +8,11 @@ def make_transaction():
 
     The details should be RSA encrypted
     '''
-    pass
+    
+    # decrpyt QR for fid
+    fid = int(input)
+    vmid = int(input())
+    pin = int(input())
+    amount = int(input())
+    
+    return {vmid, pin, amount, fid}
