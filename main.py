@@ -1,18 +1,3 @@
-"""
-main.py — End-to-end demo of the Secure Centralized EV Charging Payment Gateway
-
-Flow:
-  1. Generate RSA key pair (if not present)
-  2. Display available providers and zones
-  3. Register franchise and user with the Grid Authority
-  4. Franchise enters FID into kiosk → kiosk generates vFID + QR code
-  5. Scenario A: Successful transaction
-  6. Scenario B: Failed transaction (wrong PIN)
-  7. Scenario C: Hardware failure → automatic refund
-  8. Print blockchain ledger
-  9. Quantum attack simulation (Shor's Algorithm)
-"""
-
 import os
 import sys
 
