@@ -1,31 +1,40 @@
 import hashlib
 import time
-from .blockchain import Blockchain
+from blockchain.blockchain import Blockchain
 
 def sha3_hash(data: str) -> str:
     return hashlib.sha3_256(data.encode()).hexdigest()
+
+# 3 central energy providers, each with 3 regional zones (spec §2)
+PROVIDERS = {
+    "TATA":        ["TATA-NORTH", "TATA-SOUTH", "TATA-WEST"],
+    "ADANI":       ["ADANI-NORTH", "ADANI-SOUTH", "ADANI-EAST"],
+    "CHARGEPOINT": ["CP-NORTH",   "CP-SOUTH",    "CP-CENTRAL"],
+}
+VALID_ZONE_CODES = {zone for zones in PROVIDERS.values() for zone in zones}
 
 blockchain = Blockchain()
 
 stored_users = {}
 
-def register_user(name: str, pin: str, bal: float, mobile: str) -> tuple[str, str]:
-    # make uid -> name, time, pin hashed
+def register_user(name: str, pin: str, bal: float, mobile: str, zone_code: str) -> tuple[str, str]:
+    if zone_code not in VALID_ZONE_CODES:
+        raise ValueError(f"Invalid zone code '{zone_code}'. Valid zones: {sorted(VALID_ZONE_CODES)}")
 
     raw = name + str(time.time()) + pin
-    hashed = sha3_hash(raw)
-    uid = hashed[:16]  # take first 16 chars for UID
-    
+    uid = sha3_hash(raw)[:16]
+
     hashed_pin = sha3_hash(pin)
-    vmid = mobile + uid[:6]  # VMID = mobile + UID
+    vmid = mobile + uid[:6]
     stored_users[uid] = {
         "name": name,
+        "zone_code": zone_code,
         "hashed_pin": hashed_pin,
         "balance": bal,
         "vmid": vmid
     }
 
-    print(f"User registered with UID: {uid} and VMID: {vmid}")
+    print(f"[Grid] User '{name}' registered  UID={uid}  VMID={vmid}  Zone={zone_code}")
     return uid, vmid
 
 def get_vmid(uid: str) -> str:
@@ -34,80 +43,74 @@ def get_vmid(uid: str) -> str:
 stored_franchises = {}
 
 def register_franchise(name: str, zone_code: str, pwd: str, bal: float) -> str:
-    # make fid -> name, time, pwd hashed
-    
-    raw = name + zone_code + pwd
-    hashed = sha3_hash(raw)
-    fid = hashed[:16]  # take first 16 chars for FID
+    if zone_code not in VALID_ZONE_CODES:
+        raise ValueError(f"Invalid zone code '{zone_code}'. Valid zones: {sorted(VALID_ZONE_CODES)}")
 
-    hashed_pwd = sha3_hash(pwd)
+    # FID = SHA-3 hash of (name + time_of_creation + password) truncated to 16 hex chars (spec §2)
+    raw = name + str(time.time()) + pwd
+    fid = sha3_hash(raw)[:16]
+
     stored_franchises[fid] = {
         "name": name,
         "zone_code": zone_code,
-        "hashed_pwd": hashed_pwd,
+        "hashed_pwd": sha3_hash(pwd),
         "balance": bal,
     }
 
-    print(f"Franchise registered with FID: {fid}")
+    print(f"[Grid] Franchise '{name}' registered  FID={fid}  Zone={zone_code}")
     return fid
 
 def process_transaction(request: dict) -> dict:
-    # request = { vmid, pin, amount, fid }
+    vmid      = request["vmid"]
+    input_pin = request["pin"]
+    amount    = request["amount"]
+    fid       = request["fid"]
 
-    # 1. Check VMID <-> UID exists
-    vmid, input_pin, amount = request["vmid"], request["pin"], request["amount"]
-    fid = request["fid"]
-    # fid, timestamp = decrypt_vfid(request["qr_data"])
-
-    get_uid = lambda vmid: next((uid for uid, info in stored_users.items() if info["vmid"] == vmid), None)
-    uid = get_uid(request["vmid"])
+    # 1. Resolve VMID → UID
+    uid = next((u for u, info in stored_users.items() if info["vmid"] == vmid), None)
     if not uid:
-        return {
-            'status': 'error',
-            'message': 'Invalid VMID'
-        }
+        return {"status": "error", "message": "Invalid VMID"}
 
     # 2. Verify PIN
-    pin_hash = sha3_hash(input_pin)
-    if stored_users[uid]["hashed_pin"] != pin_hash:
-        return {
-            'status': 'error',
-            'message': 'Invalid PIN'
-        }
-    
-    # 3. Check balance
-    if stored_users[uid]["balance"] < amount:
-        return {
-            'status': 'error',
-            'message': 'Insufficient balance'
-        }
+    if stored_users[uid]["hashed_pin"] != sha3_hash(input_pin):
+        return {"status": "error", "message": "Invalid PIN"}
 
-    # 4. Create and write block to blockchain
+    # 3. Verify FID exists
+    if fid not in stored_franchises:
+        return {"status": "error", "message": "Unknown franchise FID"}
+
+    # 4. Check balance
+    if stored_users[uid]["balance"] < amount:
+        return {"status": "error", "message": "Insufficient balance"}
+
+    # 5. Record on blockchain
     try:
         block = add_to_blockchain(uid, fid, amount)
     except Exception as e:
-        return {
-            'status': 'error',
-            'message': f'Blockchain error: {str(e)}'
-        }
+        return {"status": "error", "message": f"Blockchain error: {e}"}
 
-    # 5. Update balances
-    stored_users[uid]["balance"] -= amount
+    # 6. Transfer funds
+    stored_users[uid]["balance"]      -= amount
     stored_franchises[fid]["balance"] += amount
-    
+
     return {
-        'status': 'success',
-        'message': 'Transaction processed successfully',
-        'txn_id': block.txn_id,
-        'block_hash': block.hash
+        "status":     "success",
+        "message":    "Transaction processed successfully",
+        "uid":        uid,   # returned so kiosk can pass to process_refund if needed
+        "txn_id":     block.txn_id,
+        "block_hash": block.hash
     }
+
+def process_refund(uid: str, fid: str, amount: float) -> dict:
+    """Reverse a successful transaction when hardware fails to dispense power (spec §6)."""
+    stored_users[uid]["balance"]      += amount
+    stored_franchises[fid]["balance"] -= amount
+    block = add_to_blockchain(uid, fid, amount, flag=True)  # dispute_flag=True, negative amount
+    print(f"[Grid] Refund processed  UID={uid}  FID={fid}  Amount={amount}")
+    return {"status": "refunded", "txn_id": block.txn_id}
 
 def add_to_blockchain(uid: str, fid: str, amount: float, flag: bool = False):
     return blockchain.add_block(
-        data={
-            "uid": uid,
-            "fid": fid,
-            "amount": amount
-        },
+        data={"uid": uid, "fid": fid, "amount": amount},
         flag=flag
     )

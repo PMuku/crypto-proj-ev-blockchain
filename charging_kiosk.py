@@ -11,15 +11,17 @@ class Kiosk:
     def __init__(self, grid_authority):
         self.grid_authority = grid_authority
         self.fid = None
-        self.current_vfid = "abcd"
+        self.franchise = None
+        self.current_vfid = None
         self.current_qr_code = None
         self.key = os.urandom(16)
 
         with open("private.pem", "rb") as f:
             self.private_key = RSA.import_key(f.read())
 
-    def receive_fid(self, fid: str):
+    def receive_fid(self, fid: str, franchise=None):
         self.fid = fid
+        self.franchise = franchise
         encrypted_packet = self.lwc_encrypt(fid)
         self.current_vfid = self.make_vfid(encrypted_packet)
         self.current_qr_code = self.generate_qr()
@@ -31,24 +33,45 @@ class Kiosk:
 
     def handle_user_request(self, request):
         '''
-        1. Decrypt FID and the request data
-        2. Forward request to Grid
-        3. Return response
-
-        vmid and pin are rsa-encrypted
+        1. Validate vFID, decrypt it to recover actual FID (LWC)
+        2. Decrypt VMID and PIN (RSA)
+        3. Forward auth request to Grid Authority
+        4. Relay response: notify franchise to unlock cable; trigger refund on hardware failure
+        5. Return response to caller
         '''
         received_vfid = request["vfid"]
         if received_vfid != self.current_vfid:
             raise ValueError("vfid value received from user device is not correct")
 
+        fid = self.lwc_decrypt(received_vfid)  # recover real FID from vFID
+
         grid_request = {
-                "vfid": received_vfid,
-                "vmid": self.rsa_decrypt(request["vmid"]),
-                "pin": self.rsa_decrypt(request["pin"]),
-                "amount": request["amount"]
+            "fid": fid,
+            "vmid": self.rsa_decrypt(request["vmid"]),
+            "pin": self.rsa_decrypt(request["pin"]),
+            "amount": request["amount"]
         }
 
-        self.grid_authority.process_transaction(grid_request)
+        response = self.grid_authority.process_transaction(grid_request)
+
+        if response["status"] == "success":
+            if self.franchise:
+                hardware_ok = self.franchise.receive_confirmation(True)
+                if not hardware_ok:
+                    print("[Kiosk] Hardware failure after payment. Initiating refund...")
+                    refund = self.grid_authority.process_refund(
+                        response["uid"], fid, request["amount"]
+                    )
+                    response = {
+                        "status": "refunded",
+                        "message": "Payment refunded due to hardware failure",
+                        "txn_id": refund["txn_id"]
+                    }
+        else:
+            if self.franchise:
+                self.franchise.receive_confirmation(False)
+
+        return response
 
 
     def lwc_encrypt(self, fid: str):
@@ -86,5 +109,5 @@ class Kiosk:
 
     def rsa_decrypt(self, ct):
         cipher = PKCS1_OAEP.new(self.private_key)
-        cipher.decrypt(ct).decode()
+        return cipher.decrypt(ct).decode()
 
