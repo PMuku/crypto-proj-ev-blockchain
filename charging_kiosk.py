@@ -24,12 +24,12 @@ class Kiosk:
         self.franchise = franchise
         encrypted_packet = self.lwc_encrypt(fid)
         self.current_vfid = self.make_vfid(encrypted_packet)
-        self.current_qr_code = self.generate_qr()
+        # self.current_qr_code = self.generate_qr()
         # self.current_qr_code.show()
 
-    def generate_qr(self):
-        qr = qrcode.make(self.current_vfid)
-        return qr
+    # def generate_qr(self):
+    #     qr = qrcode.make(self.current_vfid)
+    #     return qr
 
     def handle_user_request(self, request):
         '''
