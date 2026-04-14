@@ -1,37 +1,11 @@
-"""
-Shor's Algorithm Simulation — Quantum Attack on RSA
 
-Demonstrates how a quantum computer running Shor's Algorithm can factor an RSA
-modulus and recover the private key, breaking the RSA-encrypted VMID/PIN
-transmission used in the EV charging gateway.
-
-The quantum advantage:
-  Classical period-finding  → O(n)   time  (exponential in key size)
-  Quantum period-finding    → O(log³ n) time  (polynomial — Shor 1994)
-
-For this demo we use a small RSA modulus (n = p × q with small primes) so that
-the classical simulation completes instantly, while explaining the implication
-for the 2048-bit keys used in the real system.
-"""
 
 import math
 import random
 
 
-# ---------------------------------------------------------------------------
-# Core algorithm
-# ---------------------------------------------------------------------------
-
 def quantum_period_finding(a: int, n: int) -> int | None:
-    """
-    Classical simulation of the quantum period-finding subroutine.
 
-    Finds the smallest r > 0 such that  a^r ≡ 1 (mod n).
-
-    On a real quantum computer this step runs in O(log³ n) via the Quantum
-    Fourier Transform.  Classically it is O(n) — exponential in the bit-length
-    of n — which is why Shor's algorithm confers an exponential speed-up.
-    """
     x = a % n
     for r in range(1, n + 1):
         if x == 1:
@@ -42,8 +16,6 @@ def quantum_period_finding(a: int, n: int) -> int | None:
 
 def shors_factor(n: int) -> tuple[int | None, int | None]:
     """
-    Classical simulation of Shor's Algorithm to factor n = p × q.
-
     Returns (p, q) on success, (None, None) on failure.
     """
     if n % 2 == 0:
@@ -73,28 +45,16 @@ def shors_factor(n: int) -> tuple[int | None, int | None]:
 
     return None, None
 
-
-# ---------------------------------------------------------------------------
-# Demo
-# ---------------------------------------------------------------------------
-
 def demonstrate_shor_attack(vmid: str = "9876543210ab1234", pin: str = "4567"):
-    """
-    Shows an attacker intercepting RSA-encrypted VMID/PIN and recovering them
-    using Shor's Algorithm.
 
-    We use a tiny RSA modulus (p=127, q=131) so the classical simulation runs
-    instantly.  The attack logic is identical for 2048-bit keys on a quantum
-    computer.
-    """
     print("\n" + "=" * 64)
     print("  QUANTUM ATTACK SIMULATION — Shor's Algorithm on RSA")
     print("=" * 64)
 
-    # ── Small RSA setup ──────────────────────────────────────────────────────
+    # RSA Setup
     p, q = 127, 131                 # small primes for classical demo
     n    = p * q                    # modulus = 16637
-    e    = 17                       # public exponent (coprime to φ(n) = 16380)
+    e    = 17                       # public exponent 
 
     phi_n = (p - 1) * (q - 1)
     assert math.gcd(e, phi_n) == 1, "e must be coprime to phi(n)"
@@ -105,7 +65,7 @@ def demonstrate_shor_attack(vmid: str = "9876543210ab1234", pin: str = "4567"):
     print(f"  Public   e = {e}")
     print(f"  Private  d = {d}  ← attacker does NOT know this")
 
-    # ── Encrypt a 2-byte slice of the PIN (n=16637 → max plaintext < 16637) ──
+    #  Encrypt a 2-byte slice of the PIN 
     secret_int  = int.from_bytes(pin[:2].encode(), "big")
     ciphertext  = pow(secret_int, e, n)          # textbook RSA encrypt
 
@@ -114,7 +74,7 @@ def demonstrate_shor_attack(vmid: str = "9876543210ab1234", pin: str = "4567"):
     print(f"  Public key   (n={n}, e={e})")
     print(f"\n[Shor's Attack] Factoring n={n} with quantum period-finding ...")
 
-    # ── Run Shor's algorithm ─────────────────────────────────────────────────
+    # Run Shor's algorithm
     found_p, found_q = shors_factor(n)
 
     if found_p is None:
@@ -133,7 +93,7 @@ def demonstrate_shor_attack(vmid: str = "9876543210ab1234", pin: str = "4567"):
     print(f"[Result]        Original PIN was:     '{pin[:2]}'")
     print(f"                Match: {recovered_pin == pin[:2]}")
 
-    # ── Implication ──────────────────────────────────────────────────────────
+    # Implication 
     print(f"""
 [Implication]
   The EV system transmits VMID and PIN encrypted with 2048-bit RSA.
