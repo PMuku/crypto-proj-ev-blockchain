@@ -8,12 +8,13 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
 class Kiosk:
-    def __init__(self, grid_authority):
+    def __init__(self, grid_authority, simulate_hardware_failure=False):
         self.grid_authority = grid_authority
         self.fid = None
         self.franchise = None
         self.current_vfid = None
         self.current_qr_code = None
+        self.simulate_hardware_failure = simulate_hardware_failure
         self.key = os.urandom(16)
 
         with open("private.pem", "rb") as f:
@@ -56,17 +57,18 @@ class Kiosk:
 
         if response["status"] == "success":
             if self.franchise:
-                hardware_ok = self.franchise.receive_confirmation(True)
-                if not hardware_ok:
-                    print("[Kiosk] Hardware failure after payment. Initiating refund...")
-                    refund = self.grid_authority.process_refund(
-                        response["uid"], fid, request["amount"]
-                    )
-                    response = {
-                        "status": "refunded",
-                        "message": "Payment refunded due to hardware failure",
-                        "txn_id": refund["txn_id"]
-                    }
+                self.franchise.receive_confirmation(True)
+            
+            if self.simulate_hardware_failure:
+                print("[Kiosk] Hardware failure after payment. Initiating refund...")
+                refund = self.grid_authority.process_refund(
+                    response["uid"], fid, request["amount"]
+                )
+                response = {
+                    "status": "refunded",
+                    "message": "Payment refunded due to hardware failure",
+                    "txn_id": refund["txn_id"]
+                }
         else:
             if self.franchise:
                 self.franchise.receive_confirmation(False)

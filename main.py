@@ -72,11 +72,10 @@ def main_menu():
             zone = input("Enter Zone Code (e.g. TATA-SOUTH): ").strip()
             pwd = input("Enter Password: ").strip()
             bal = float(input("Enter Initial Balance: ").strip())
-            fail_sim = input("Simulate Hardware Failure for refunds? (y/N): ").strip().lower() == 'y'
-            
+
             try:
                 fid = ga.register_franchise(name=name, zone_code=zone, pwd=pwd, bal=bal)
-                franchise_obj = Franchise(name=name, zone_code=zone, fid=fid, account_number=f"ACC-{len(my_franchises)}", balance=bal, simulate_hardware_failure=fail_sim)
+                franchise_obj = Franchise(name=name, zone_code=zone, fid=fid, account_number=f"ACC-{len(my_franchises)}", balance=bal)
                 my_franchises[fid] = franchise_obj
                 print(f"[Success] Franchise generated FID: {fid}")
             except Exception as e:
@@ -110,13 +109,15 @@ def main_menu():
                 sel_fid = fids[f_idx]
                 franchise_obj = my_franchises[sel_fid]
                 
-                kiosk = Kiosk(grid_authority=ga)
+                fail_sim = input("Simulate Hardware Failure for refunds at this Kiosk? (y/N): ").strip().lower() == 'y'
+
+                kiosk = Kiosk(grid_authority=ga, simulate_hardware_failure=fail_sim)
                 franchise_obj.enter_fid_to_kiosk(kiosk)
                 kiosk_id = f"Kiosk-{len(my_kiosks)+1}"
                 my_kiosks[kiosk_id] = kiosk
                 
                 print(f"[Kiosk] vFID generated: {kiosk.current_vfid}")
-                print(f"[Kiosk] QR code assigned to {kiosk_id}")
+                print(f"[Kiosk] ID assigned to {kiosk_id}")
             except Exception as e:
                 print(f"[Error setup] {e}")
 
@@ -158,15 +159,43 @@ def main_menu():
                 print(f"[Error running quantum attack] {e}")
 
         elif choice == '8':
-            print("\n- USER BALANCES -")
-            for vmid, uinfo in my_users.items():
-                uid = uinfo["uid"]
-                bal = ga.stored_users[uid]['balance']
-                print(f"  {uinfo['name']} ({vmid}): ₹{bal:.2f}")
-            print("\n- FRANCHISE BALANCES -")
-            for fid, fobj in my_franchises.items():
-                bal = ga.stored_franchises[fid]['balance']
-                print(f"  {fobj.name} ({fid}): ₹{bal:.2f}")
+            print("1. Check User Balance")
+            print("2. Check Franchise Balance")
+            sub_choice = input("Select account type: ").strip()
+
+            if sub_choice == '1':
+                if not my_users:
+                    print("[!] No users registered.")
+                    continue
+                vmid = input("Enter your VMID: ").strip()
+                if vmid in my_users:
+                    uid = my_users[vmid]["uid"]
+                    pin = input("Enter 4-digit PIN: ").strip()
+                    if ga.stored_users[uid]["hashed_pin"] == ga.sha3_hash(pin):
+                        bal = ga.stored_users[uid]['balance']
+                        print(f"[Success] {my_users[vmid]['name']} Balance: ₹{bal:.2f}")
+                    else:
+                        print("[Error] Invalid PIN. Access Denied.")
+                else:
+                    print("[Error] VMID not found.")
+                    
+            elif sub_choice == '2':
+                if not my_franchises:
+                    print("[!] No franchises registered.")
+                    continue
+                fid = input("Enter Franchise ID (FID): ").strip()
+                if fid in ga.stored_franchises:
+                    pwd = input("Enter Franchise Password: ").strip()
+                    if ga.stored_franchises[fid]["hashed_pwd"] == ga.sha3_hash(pwd):
+                        f_name = ga.stored_franchises[fid]["name"]
+                        bal = ga.stored_franchises[fid]['balance']
+                        print(f"[Success] {f_name} Balance: ₹{bal:.2f}")
+                    else:
+                        print("[Error] Invalid Password. Access Denied.")
+                else:
+                    print("[Error] FID not found.")
+            else:
+                print("Invalid selection.")
 
         elif choice == '9':
             print("Exiting...")
