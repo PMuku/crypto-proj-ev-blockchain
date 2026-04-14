@@ -83,7 +83,7 @@ class Kiosk:
         nonce = os.urandom(16)
         plaintext = json.dumps(payload).encode()
 
-        ciphertext = encrypt(key=self.key, nonce=nonce, associateddata=None, plaintext=plaintext, variant="Ascon-128")
+        ciphertext = encrypt(key=self.key, nonce=nonce, associateddata=b"", plaintext=plaintext, variant="Ascon-128")
 
         return {
                 "nonce": nonce,
@@ -94,7 +94,7 @@ class Kiosk:
         nonce_b64, ct_b64 = vfid.split(".")
         nonce = base64.urlsafe_b64decode(nonce_b64)
         ciphertext = base64.urlsafe_b64decode(ct_b64)
-        plaintext = decrypt(key=self.key, nonce=nonce, associateddata=None, ciphertext=ciphertext, variant="Ascon-128")
+        plaintext = decrypt(key=self.key, nonce=nonce, associateddata=b"", ciphertext=ciphertext, variant="Ascon-128")
         if plaintext is None:
             raise ValueError("Decryption of vfid failed on kiosk end")
 
