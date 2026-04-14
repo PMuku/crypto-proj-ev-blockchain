@@ -1,8 +1,11 @@
 import hashlib
 import time
+from .blockchain import Blockchain
 
 def sha3_hash(data: str) -> str:
     return hashlib.sha3_256(data.encode()).hexdigest()
+
+blockchain = Blockchain()
 
 stored_users = {}
 
@@ -48,17 +51,13 @@ def register_franchise(name: str, zone_code: str, pwd: str, bal: float) -> str:
     print(f"Franchise registered with FID: {fid}")
     return fid
 
-# TODO: Implement LWC algo - ASCON for VFID generation or use existing library if available
-def make_vfid(fid: str) -> str:
-    # vfid = fid + timestamp
-    # Placeholder for LWC algo - ASCON
-    return "a5df" * 16
-
 def process_transaction(request: dict) -> dict:
     # request = { vmid, pin, amount, fid }
 
     # 1. Check VMID <-> UID exists
-    vmid, input_pin, amount, fid = request["vmid"], request["pin"], request["amount"], request["fid"]
+    vmid, input_pin, amount = request["vmid"], request["pin"], request["amount"]
+    fid = request["fid"]
+    # fid, timestamp = decrypt_vfid(request["qr_data"])
 
     get_uid = lambda vmid: next((uid for uid, info in stored_users.items() if info["vmid"] == vmid), None)
     uid = get_uid(request["vmid"])
@@ -85,7 +84,7 @@ def process_transaction(request: dict) -> dict:
 
     # 4. Create and write block to blockchain
     try:
-        block = add_to_blockchain()
+        block = add_to_blockchain(uid, fid, amount)
     except Exception as e:
         return {
             'status': 'error',
@@ -103,6 +102,12 @@ def process_transaction(request: dict) -> dict:
         'block_hash': block.hash
     }
 
-# TODO: Write to blockchain to store transactions and maintain integrity
-def add_to_blockchain():
-    pass
+def add_to_blockchain(uid: str, fid: str, amount: float, flag: bool = False):
+    return blockchain.add_block(
+        data={
+            "uid": uid,
+            "fid": fid,
+            "amount": amount
+        },
+        flag=flag
+    )

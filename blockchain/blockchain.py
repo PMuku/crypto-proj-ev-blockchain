@@ -19,10 +19,17 @@ class Blockchain:
         return self.chain[-1]
 
     def add_block(self, data: dict, flag: bool = False):
+        reqd_fields = {'uid', 'fid', 'amount'}
+        if not reqd_fields.issubset(data.keys()):
+            raise ValueError(f"Data must contain fields: {reqd_fields}")
+        
         prev_block = self.get_latest_block()
         new_block = Block(prev_hash=prev_block.hash, data=data, flag=flag)
         self.chain.append(new_block)
         return new_block
+
+    def add_refund_block(self, uid, fid, amount):
+        return self.add_block(data={'uid': uid, 'fid': fid, 'amount': -amount}, flag=True)
 
     def is_chain_valid(self) -> bool:
         for i in range(1, len(self.chain)):
