@@ -23,6 +23,8 @@ def register_user(name: str, pin: str, bal: float, mobile: str, zone_code: str) 
 
     raw = name + str(time.time()) + pin
     uid = sha3_hash(raw)[:16]
+    if len(pin) != 4:
+        raise ValueError("Pin is not of length 4")
 
     hashed_pin = sha3_hash(pin)
     vmid = mobile + uid[:6]
