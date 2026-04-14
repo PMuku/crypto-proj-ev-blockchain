@@ -23,13 +23,15 @@ class Block:
         return hashlib.sha3_256(txn_str.encode()).hexdigest()
 
     def compute_hash(self) -> str:
-        block_str = (
-            self.prev_hash + 
-            self.txn_id + 
-            str(self.timestamp) + 
-            str(self.dispute_flag) +
-            str(self.data)
-        )
+        import json
+
+        block_str = json.dumps({
+            "prev_hash": self.prev_hash,
+            "txn_id": self.txn_id,
+            "timestamp": self.timestamp,
+            "dispute_flag": self.dispute_flag,
+            "data": self.data
+        }, sort_keys=True)
         return hashlib.sha3_256(block_str.encode()).hexdigest()
     
     def _print_block(self):
