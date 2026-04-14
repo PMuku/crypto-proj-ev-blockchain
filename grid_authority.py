@@ -51,14 +51,6 @@ def register_franchise(name: str, zone_code: str, pwd: str, bal: float) -> str:
     print(f"Franchise registered with FID: {fid}")
     return fid
 
-def make_vfid(fid: str) -> str:
-    # vfid = fid + timestamp
-    # Placeholder for LWC algo - ASCON
-    timestamp = time.time()
-    vfid = fid + str(timestamp)
-
-    return vfid
-
 def process_transaction(request: dict) -> dict:
     # request = { vmid, pin, amount, fid }
 
