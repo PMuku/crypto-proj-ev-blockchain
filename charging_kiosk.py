@@ -13,7 +13,7 @@ class Kiosk:
         self.fid = None
         self.franchise = None
         self.current_vfid = None
-        self.current_qr_code = None
+        # self.current_qr_code = None
         self.simulate_hardware_failure = simulate_hardware_failure
         self.key = os.urandom(16)
 
@@ -23,14 +23,21 @@ class Kiosk:
     def receive_fid(self, fid: str, franchise=None):
         self.fid = fid
         self.franchise = franchise
-        encrypted_packet = self.lwc_encrypt(fid)
-        self.current_vfid = self.make_vfid(encrypted_packet)
         # self.current_qr_code = self.generate_qr()
-        # self.current_qr_code.show()
 
-    # def generate_qr(self):
-    #     qr = qrcode.make(self.current_vfid)
-    #     return qr
+    def generate_qr(self):
+        qr = qrcode.QRCode(border=1)
+        qr.add_data(self.current_vfid)
+        qr.make(fit=True)
+
+        qr.print_ascii()
+
+    def initiate_transaction(self):
+        if self.fid == None: 
+            raise ValueError("FID not available")
+
+        enc_packet = self.lwc_encrypt(self.fid)
+        self.current_vfid = self.make_vfid(enc_packet)
 
     def handle_user_request(self, request):
         '''
@@ -40,6 +47,7 @@ class Kiosk:
         4. Relay response: notify franchise to unlock cable; trigger refund on hardware failure
         5. Return response to caller
         '''
+        
         received_vfid = request["vfid"]
         if received_vfid != self.current_vfid:
             raise ValueError("vfid value received from user device is not correct")
@@ -112,4 +120,3 @@ class Kiosk:
     def rsa_decrypt(self, ct):
         cipher = PKCS1_OAEP.new(self.private_key)
         return cipher.decrypt(ct).decode()
-
