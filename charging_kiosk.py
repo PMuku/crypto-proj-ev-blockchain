@@ -23,7 +23,7 @@ class Kiosk:
         encrypted_packet = self.lwc_encrypt(fid)
         self.current_vfid = self.make_vfid(encrypted_packet)
         self.current_qr_code = self.generate_qr()
-        self.current_qr_code.show()
+        # self.current_qr_code.show()
 
     def generate_qr(self):
         qr = qrcode.make(self.current_vfid)
@@ -38,6 +38,18 @@ class Kiosk:
         vmid and pin are rsa-encrypted
         '''
         received_vfid = request["vfid"]
+        if received_vfid != self.current_vfid:
+            raise ValueError("vfid value received from user device is not correct")
+
+        grid_request = {
+                "vfid": received_vfid,
+                "vmid": self.rsa_decrypt(request["vmid"]),
+                "pin": self.rsa_decrypt(request["pin"]),
+                "amount": request["amount"]
+        }
+
+        self.grid_authority.process_transaction(grid_request)
+
 
     def lwc_encrypt(self, fid: str):
         payload = {
@@ -75,5 +87,4 @@ class Kiosk:
     def rsa_decrypt(self, ct):
         cipher = PKCS1_OAEP.new(self.private_key)
         cipher.decrypt(ct).decode()
-
 
