@@ -41,14 +41,7 @@ def shors_factor(n: int) -> tuple[int | None, int | None]:
 
 
 def demonstrate_shor_attack(vmid: str = "9876543210ab1234", pin: str = "4567"):
-    """
-    Shows an attacker intercepting RSA-encrypted VMID/PIN and recovering them
-    using Shor's Algorithm.
 
-    We use a tiny RSA modulus (p=127, q=131) so the classical simulation runs
-    instantly.  The attack logic is identical for 2048-bit keys on a quantum
-    computer.
-    """
     print("\n" + "=" * 64)
     print("  QUANTUM ATTACK SIMULATION — Shor's Algorithm on RSA")
     print("=" * 64)
