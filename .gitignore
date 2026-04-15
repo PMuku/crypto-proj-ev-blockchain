@@ -1,1 +1,29 @@
 *.pdf
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# RSA keys (sensitive — never commit)
+*.pem
+
+# QR code images generated at runtime
+*.png
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
