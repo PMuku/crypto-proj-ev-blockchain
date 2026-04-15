@@ -1,5 +1,7 @@
 import os
 import sys
+import hmac
+import hashlib
 
 if not (os.path.exists("private.pem") and os.path.exists("public.pem")):
     print("[Setup] Generating 2048-bit RSA key pair...")
@@ -93,16 +95,25 @@ def main_menu():
                 f_idx = int(input("Choice: ")) - 1
                 sel_fid = fids[f_idx]
                 franchise_obj = my_franchises[sel_fid]
-                
-                fail_sim = input("Simulate Hardware Failure for refunds at this Kiosk? (y/N): ").strip().lower() == 'y'
+                pwd = input("Enter franchise password: ")                    
+                if ga.stored_franchises[sel_fid]["hashed_pwd"] == ga.sha3_hash(pwd):
+                    try: 
+                        fail_sim = input("Simulate Hardware Failure for refunds at this Kiosk? (y/N): ").strip().lower() == 'y'
 
-                kiosk = Kiosk(grid_authority=ga, simulate_hardware_failure=fail_sim)
-                franchise_obj.enter_fid_to_kiosk(kiosk)
-                kiosk_id = f"Kiosk-{len(my_kiosks)+1}"
-                my_kiosks[kiosk_id] = kiosk
-                
-                print(f"[Kiosk] vFID generated: {kiosk.current_vfid}")
-                print(f"[Kiosk] ID assigned to {kiosk_id}")
+                        kiosk = Kiosk(grid_authority=ga, simulate_hardware_failure=fail_sim)
+                        franchise_obj.enter_fid_to_kiosk(kiosk)
+                        kiosk_id = f"Kiosk-{len(my_kiosks)+1}"
+                        my_kiosks[kiosk_id] = kiosk
+                        
+                        print(f"[Kiosk] vFID generated: {kiosk.current_vfid}")
+                        print(f"[Kiosk] ID assigned to {kiosk_id}")
+
+                    except Exception as e:
+                       print(f"[Error setup] {e}")
+
+                else:
+                    print("[Error] Invalid Password. Access Denied.")
+ 
             except Exception as e:
                 print(f"[Error setup] {e}")
 
@@ -119,13 +130,17 @@ def main_menu():
             try:
                 k_idx = int(input("Choice: ")) - 1
                 kiosk_obj = my_kiosks[k_ids[k_idx]]
-                
+                kiosk_obj.initiate_transaction()
+
+                kiosk_obj.generate_qr()
+
+                vfid = input("Enter VFID(Scan QR)").strip()
                 vmid = input("Enter your VMID: ").strip()
                 pin = input("Enter your PIN: ").strip()
                 amount = float(input("Enter amount: ").strip())
                 
                 user_device = UserDevice()
-                user_device.make_transaction(kiosk=kiosk_obj, vfid=kiosk_obj.current_vfid, vmid=vmid, pin=pin, amount=amount)
+                user_device.make_transaction(kiosk=kiosk_obj, vfid=vfid, vmid=vmid, pin=pin, amount=amount)
             except Exception as e:
                 print(f"[Error processing transaction]: {e}")
                 
